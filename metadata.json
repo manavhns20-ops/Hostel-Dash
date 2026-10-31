@@ -1,0 +1,6 @@
+{
+  "name": "Hostel Dash: The 8 AM Nightmare",
+  "description": "A comedic 2D pixel-art platformer where a college student wakes at 7:55 AM and races against time, obstacles, and the hostel warden to reach the 8 AM lecture.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

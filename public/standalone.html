@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Hostel Dash: The 8 AM Nightmare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body {
+      background-color: #07090e;
+      color: #e6edf3;
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100vw;
+      height: 100vh;
+    }
+    .font-pixel {
+      font-family: 'Press Start 2P', monospace;
+    }
+    #game-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      max-width: 1920px;
+      max-height: 1080px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    /* HUD Overlay */
+    #hud {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: none;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px;
+    }
+    .hud-panel {
+      pointer-events: auto;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(51, 65, 85, 0.8);
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .btn {
+      cursor: pointer;
+      background: #1e293b;
+      border: 1px solid #475569;
+      color: #f8fafc;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      transition: all 0.15s;
+    }
+    .btn:hover {
+      background: #334155;
+    }
+    .btn-primary {
+      background: #f59e0b;
+      color: #0f172a;
+      border: none;
+      font-size: 12px;
+      padding: 12px 24px;
+      border-radius: 8px;
+    }
+    .btn-primary:hover {
+      background: #fbbf24;
+      transform: scale(1.04);
+    }
+    /* Overlays */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(7, 9, 14, 0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+      z-index: 10;
+    }
+    .card {
+      background: #0f172a;
+      border: 2px solid #334155;
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 520px;
+      width: 100%;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+    }
+    .progress-track {
+      width: 100%;
+      max-width: 480px;
+      height: 10px;
+      background: #1e293b;
+      border-radius: 5px;
+      overflow: hidden;
+      margin: 4px auto;
+      border: 1px solid #334155;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #f59e0b, #38bdf8, #10b981);
+      width: 0%;
+      transition: width 0.1s linear;
+    }
+    #toast {
+      position: absolute;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0f172a;
+      border: 2px solid #f59e0b;
+      color: #fef08a;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-family: 'Press Start 2P', monospace;
+      display: none;
+      z-index: 5;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="gameCanvas" width="960" height="540"></canvas>
+
+    <!-- Toast Notification -->
+    <div id="toast"></div>
+
+    <!-- HUD Overlay -->
+    <div id="hud">
+      <div class="top-bar">
+        <div class="hud-panel">
+          <div>
+            <div style="font-size: 8px; color: #94a3b8;" class="font-pixel">CAMPUS CLOCK</div>
+            <div id="hud-clock" style="font-size: 13px; color: #f59e0b;" class="font-pixel">07:55:00 AM</div>
+          </div>
+          <div id="hud-timer" style="border-left: 1px solid #334155; padding-left: 8px; font-size: 12px; font-family: monospace; color: #cbd5e1;">90.0s</div>
+        </div>
+
+        <div class="hud-panel" style="flex-direction: column; align-items: center;">
+          <div id="hud-zone" style="font-size: 8px; color: #38bdf8;" class="font-pixel">HOSTEL ROOM</div>
+          <div id="hud-objective" style="font-size: 11px; color: #f8fafc;">Find ID Card on high shelf!</div>
+        </div>
+
+        <div style="display: flex; gap: 8px; align-items: center;" class="pointer-events-auto">
+          <div id="hud-id" class="hud-panel" style="font-size: 9px; color: #f87171;" class="font-pixel">ID: MISSING ✗</div>
+          <div class="hud-panel">
+            <span style="font-size: 9px; color: #94a3b8;" class="font-pixel">LIVES:</span>
+            <span id="hud-lives" style="color: #ef4444; font-size: 13px;">❤️❤️❤️</span>
+          </div>
+          <div class="hud-panel">
+            <span style="font-size: 8px; color: #94a3b8;" class="font-pixel">SCORE:</span>
+            <span id="hud-score" style="font-size: 12px; color: #fbbf24;" class="font-pixel">0</span>
+          </div>
+          <button id="btn-sound" class="btn" onclick="toggleSound()">🔊</button>
+          <button id="btn-pause" class="btn" onclick="togglePause()">⏸</button>
+        </div>
+      </div>
+
+      <!-- Distance Progress -->
+      <div style="pointer-events: auto; text-align: center; width: 100%;">
+        <div style="display: flex; justify-content: space-between; max-width: 480px; margin: 0 auto; font-size: 8px; color: #94a3b8;" class="font-pixel">
+          <span>BEDROOM</span>
+          <span>CORRIDOR</span>
+          <span>COURTYARD</span>
+          <span style="color: #f59e0b;">HALL 101</span>
+        </div>
+        <div class="progress-track">
+          <div id="progress-fill" class="progress-fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Title Screen Overlay -->
+    <div id="screen-title" class="overlay">
+      <div style="margin-bottom: 12px;">
+        <h1 style="font-size: 40px; color: #f59e0b; text-shadow: 0 4px 12px rgba(245,158,11,0.5);" class="font-pixel">HOSTEL DASH</h1>
+        <div style="font-size: 13px; color: #f43f5e; margin-top: 6px; letter-spacing: 2px;" class="font-pixel">THE 8 AM NIGHTMARE</div>
+      </div>
+      <p style="color: #94a3b8; font-size: 14px; max-width: 440px; margin-bottom: 24px;">
+        Your lecture starts in five minutes. Your life is already falling apart.
+      </p>
+      <button class="btn btn-primary" onclick="startGame()">START DASH (SPACE)</button>
+      <div style="margin-top: 24px; background: rgba(15,23,42,0.8); border: 1px solid #334155; padding: 10px 18px; border-radius: 8px; font-size: 11px; color: #cbd5e1;">
+        <strong>WASD / Arrow Keys</strong> Move & Jump · <strong>Esc</strong> Pause · <strong>M</strong> Mute
+      </div>
+    </div>
+
+    <!-- Pause Screen Overlay -->
+    <div id="screen-pause" class="overlay" style="display: none;">
+      <div class="card">
+        <h2 style="font-size: 20px; color: #f59e0b; margin-bottom: 20px;" class="font-pixel">GAME PAUSED</h2>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <button class="btn btn-primary" onclick="resumeGame()">RESUME</button>
+          <button class="btn" onclick="startGame()">RESTART LEVEL</button>
+          <button class="btn" onclick="backToTitle()">MAIN MENU</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Victory Screen Overlay -->
+    <div id="screen-victory" class="overlay" style="display: none;">
+      <div class="card" style="border-color: #10b981;">
+        <div style="font-size: 10px; color: #10b981;" class="font-pixel">ATTENDANCE SECURED: 100%</div>
+        <h2 style="font-size: 28px; color: #10b981; margin: 10px 0;" class="font-pixel">YOU MADE IT!</h2>
+        <p style="font-size: 12px; color: #cbd5e1; font-style: italic; margin-bottom: 16px;">
+          "The professor is shocked. You are somehow on time!"
+        </p>
+        <div style="background: #020617; padding: 14px; border-radius: 8px; margin-bottom: 20px; text-align: left; font-size: 12px;" class="font-pixel">
+          <div style="color: #f59e0b; margin-bottom: 8px;">FINAL SCORE: <span id="vic-score">0</span></div>
+          <div style="color: #38bdf8; margin-bottom: 8px;">TIME LEFT: <span id="vic-time">0</span>s</div>
+          <div style="color: #4ade80;">RANK: <span id="vic-rank">S</span> RANK</div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-primary" style="flex: 1;" onclick="startGame()">PLAY AGAIN</button>
+          <button class="btn" onclick="backToTitle()">MENU</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game Over Screen Overlay -->
+    <div id="screen-gameover" class="overlay" style="display: none;">
+      <div class="card" style="border-color: #ef4444;">
+        <div style="font-size: 10px; color: #ef4444;" class="font-pixel">DEFEAT</div>
+        <h2 style="font-size: 28px; color: #ef4444; margin: 10px 0;" class="font-pixel">ATTENDANCE: 0%</h2>
+        <p id="gameover-reason" style="font-size: 12px; color: #cbd5e1; font-style: italic; margin-bottom: 16px;">
+          8:00 AM has arrived. Professor Sharma has locked the door.
+        </p>
+        <div style="background: #020617; padding: 14px; border-radius: 8px; margin-bottom: 20px; text-align: left; font-size: 12px;" class="font-pixel">
+          <div style="color: #f59e0b; margin-bottom: 8px;">DISTANCE: <span id="gov-dist">0</span>%</div>
+          <div style="color: #38bdf8;">SCORE: <span id="gov-score">0</span></div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-primary" style="flex: 1;" onclick="startGame()">TRY AGAIN</button>
+          <button class="btn" onclick="backToTitle()">MENU</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // PROCEDURAL AUDIO SYNTHESIZER (Web Audio API)
+    // ==========================================
+    let audioCtx = null;
+    let isMuted = false;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function toggleSound() {
+      initAudio();
+      isMuted = !isMuted;
+      document.getElementById('btn-sound').textContent = isMuted ? '🔇' : '🔊';
+    }
+
+    function sfxJump() {
+      if (isMuted || !audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const now = audioCtx.currentTime;
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(160, now);
+      osc.frequency.exponentialRampToValueAtTime(480, now + 0.12);
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.12);
+    }
+
+    function sfxCollect() {
+      if (isMuted || !audioCtx) return;
+      [523.25, 659.25, 783.99].forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const t = audioCtx.currentTime + i * 0.05;
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + 0.12);
+      });
+    }
+
+    function sfxIdCard() {
+      if (isMuted || !audioCtx) return;
+      [523.25, 783.99, 1046.5, 1318.5].forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const t = audioCtx.currentTime + i * 0.08;
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(0.2, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + 0.35);
+      });
+    }
+
+    function sfxHit() {
+      if (isMuted || !audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const now = audioCtx.currentTime;
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(140, now);
+      osc.frequency.exponentialRampToValueAtTime(40, now + 0.18);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.linearRampToValueAtTime(0.01, now + 0.18);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.18);
+    }
+
+    function sfxVictory() {
+      if (isMuted || !audioCtx) return;
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const t = audioCtx.currentTime + i * 0.14;
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(f, t);
+        gain.gain.setValueAtTime(0.2, t);
+        gain.gain.linearRampToValueAtTime(0.001, t + 0.25);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + 0.25);
+      });
+    }
+
+    function sfxGameOver() {
+      if (isMuted || !audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const now = audioCtx.currentTime;
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.linearRampToValueAtTime(110, now + 0.5);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.linearRampToValueAtTime(0.001, now + 0.55);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.55);
+    }
+
+    // ==========================================
+    // GAME ENGINE & LOGIC
+    // ==========================================
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const LEVEL_WIDTH = 5200;
+    const LEVEL_HEIGHT = 540;
+    const GROUND_Y = 450;
+    const FINISH_LINE_X = 4920;
+
+    let gameState = 'TITLE'; // TITLE, PLAYING, PAUSED, VICTORY, GAMEOVER
+    let score = 0;
+    let timeRemaining = 90.0;
+    let totalTime = 90.0;
+    let cameraX = 0;
+    let lastTime = 0;
+    let screenShake = 0;
+
+    const player = {
+      x: 80, y: GROUND_Y - 52, vx: 0, vy: 0,
+      width: 28, height: 52, grounded: true,
+      facing: 'right', state: 'idle',
+      animTimer: 0, invulnTimer: 0,
+      hasIdCard: false, lives: 3, speedBoost: 0
+    };
+
+    const keys = { left: false, right: false, jump: false, justJumped: false };
+
+    // Toast Banner
+    function showToast(text) {
+      const toast = document.getElementById('toast');
+      toast.textContent = text;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 3500);
+    }
+
+    // Platforms
+    const platforms = [
+      { x: 0, y: GROUND_Y, width: 1100, height: 90, type: 'solid', color: '#2b211b' },
+      { x: 1100, y: GROUND_Y, width: 1200, height: 90, type: 'solid', color: '#38302b' },
+      { x: 2300, y: GROUND_Y, width: 1650, height: 90, type: 'solid', color: '#2d4a22' },
+      { x: 3950, y: 425, width: 90, height: 115, type: 'solid', color: '#64748b' },
+      { x: 4040, y: 400, width: 90, height: 140, type: 'solid', color: '#64748b' },
+      { x: 4130, y: 375, width: 90, height: 165, type: 'solid', color: '#64748b' },
+      { x: 4220, y: 375, width: 980, height: 165, type: 'solid', color: '#475569' },
+      // Hostel Bed
+      { x: 30, y: 395, width: 150, height: 55, type: 'solid', color: '#8b5a2b' },
+      // Desk
+      { x: 420, y: 370, width: 140, height: 80, type: 'solid', color: '#78350f' },
+      // High Shelf (ID Card)
+      { x: 620, y: 285, width: 160, height: 18, type: 'one-way', color: '#92400e' },
+      // Corridor Ledges
+      { x: 1260, y: 380, width: 110, height: 20, type: 'one-way', color: '#7c3aed' },
+      { x: 1540, y: 355, width: 130, height: 20, type: 'one-way', color: '#854d0e' },
+      { x: 1840, y: 310, width: 130, height: 18, type: 'one-way', color: '#475569' },
+      // Courtyard Ledges & Fountain
+      { x: 2500, y: 385, width: 110, height: 22, type: 'one-way', color: '#94a3b8' },
+      { x: 2740, y: 345, width: 170, height: 25, type: 'solid', color: '#0284c7' },
+      { x: 3050, y: 320, width: 150, height: 25, type: 'one-way', color: '#b91c1c' },
+      { x: 3360, y: 295, width: 120, height: 18, type: 'one-way', color: '#334155' }
+    ];
+
+    // Collectibles
+    let collectibles = [];
+    function resetCollectibles() {
+      collectibles = [
+        { x: 690, y: 245, w: 28, h: 36, type: 'id_card', collected: false, pts: 500 },
+        { x: 480, y: 335, w: 22, h: 26, type: 'coffee', collected: false, pts: 150 },
+        { x: 930, y: 415, w: 24, h: 28, type: 'assign', collected: false, pts: 200 },
+        { x: 1300, y: 345, w: 26, h: 22, type: 'coupon', collected: false, pts: 100 },
+        { x: 1600, y: 315, w: 24, h: 28, type: 'assign', collected: false, pts: 200 },
+        { x: 1890, y: 270, w: 22, h: 26, type: 'coffee', collected: false, pts: 150 },
+        { x: 2540, y: 345, w: 26, h: 22, type: 'coupon', collected: false, pts: 100 },
+        { x: 2810, y: 305, w: 22, h: 26, type: 'coffee', collected: false, pts: 150 },
+        { x: 3110, y: 280, w: 24, h: 28, type: 'assign', collected: false, pts: 250 },
+        { x: 4390, y: 250, w: 24, h: 28, type: 'assign', collected: false, pts: 300 }
+      ];
+    }
+
+    // Hazards
+    let hazards = [];
+    function resetHazards() {
+      hazards = [
+        { x: 320, y: 432, w: 38, h: 18, type: 'shoes', penalty: 2, msg: 'TRIPPED ON SNEAKERS! -2s' },
+        { x: 740, y: 432, w: 36, h: 18, type: 'shoes', penalty: 2, msg: 'SLIPPED ON FLIP-FLOP! -2s' },
+        { x: 1380, y: 442, w: 70, h: 8, type: 'puddle', penalty: 3, msg: 'WATER COOLER LEAK! -3s' },
+        { x: 1510, y: 418, w: 36, h: 32, type: 'books', penalty: 3, msg: 'STUBBED TOE ON 1000-PG MATH BOOK! -3s' },
+        // PATROLLING WARDEN
+        { x: 1860, y: 375, w: 34, h: 75, type: 'warden', vx: 1.4, dir: 1, minX: 1820, maxX: 2200, damage: 1, penalty: 6, msg: 'WARDEN: "NO SPRINTING! SUBMIT APPLICATION!" -1 LIFE' },
+        // ROLLING FOOTBALL
+        { x: 2600, y: 422, w: 28, h: 28, type: 'football', vx: 2.2, dir: 1, minX: 2520, maxX: 2950, penalty: 3, msg: 'STRAY FOOTBALL HIT! -3s' },
+        { x: 3220, y: 442, w: 65, h: 8, type: 'puddle', penalty: 3, msg: 'LAWN SPRINKLER MUD PUDDLE! -3s' }
+      ];
+    }
+
+    // Input Listeners
+    window.addEventListener('keydown', (e) => {
+      initAudio();
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+      if (e.code === 'KeyM') toggleSound();
+      if (e.code === 'Escape') togglePause();
+      if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
+      if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+      if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Space') {
+        if (!keys.jump) keys.justJumped = true;
+        keys.jump = true;
+        if (gameState === 'TITLE' || gameState === 'VICTORY' || gameState === 'GAMEOVER') startGame();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
+      if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+      if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Space') {
+        keys.jump = false;
+        if (player.vy < -3) player.vy *= 0.5;
+      }
+    });
+
+    function startGame() {
+      initAudio();
+      player.x = 80; player.y = GROUND_Y - 52; player.vx = 0; player.vy = 0;
+      player.grounded = true; player.facing = 'right'; player.hasIdCard = false;
+      player.lives = 3; player.speedBoost = 0; player.invulnTimer = 0;
+      score = 0; timeRemaining = totalTime; cameraX = 0;
+      resetCollectibles();
+      resetHazards();
+
+      document.getElementById('screen-title').style.display = 'none';
+      document.getElementById('screen-pause').style.display = 'none';
+      document.getElementById('screen-victory').style.display = 'none';
+      document.getElementById('screen-gameover').style.display = 'none';
+      document.getElementById('hud').style.display = 'flex';
+
+      gameState = 'PLAYING';
+      lastTime = performance.now();
+      showToast('ALARM RINGS! FIND YOUR ID CARD IN ROOM!');
+    }
+
+    function togglePause() {
+      if (gameState === 'PLAYING') {
+        gameState = 'PAUSED';
+        document.getElementById('screen-pause').style.display = 'flex';
+      } else if (gameState === 'PAUSED') {
+        resumeGame();
+      }
+    }
+
+    function resumeGame() {
+      gameState = 'PLAYING';
+      document.getElementById('screen-pause').style.display = 'none';
+      lastTime = performance.now();
+    }
+
+    function backToTitle() {
+      gameState = 'TITLE';
+      document.getElementById('screen-title').style.display = 'flex';
+      document.getElementById('screen-pause').style.display = 'none';
+      document.getElementById('screen-victory').style.display = 'none';
+      document.getElementById('screen-gameover').style.display = 'none';
+      document.getElementById('hud').style.display = 'none';
+    }
+
+    // ==========================================
+    // MAIN LOOP & PHYSICS
+    // ==========================================
+    function loop(timestamp) {
+      if (!lastTime) lastTime = timestamp;
+      const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+      lastTime = timestamp;
+
+      if (gameState === 'PLAYING') {
+        update(dt);
+      }
+
+      render();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    function update(dt) {
+      // Clock Countdown
+      timeRemaining -= dt;
+      if (timeRemaining <= 0) {
+        timeRemaining = 0;
+        triggerGameOver('8:00 AM has arrived! The classroom door was locked right in front of you.');
+        return;
+      }
+
+      if (player.invulnTimer > 0) player.invulnTimer -= dt;
+      if (player.speedBoost > 0) player.speedBoost -= dt;
+      if (screenShake > 0) screenShake = Math.max(0, screenShake - dt * 3);
+
+      // Movement
+      const maxSpd = player.speedBoost > 0 ? 8.2 : 5.4;
+      if (keys.left) {
+        player.vx += (-maxSpd - player.vx) * 20 * dt;
+        player.facing = 'left';
+        player.state = 'running';
+        player.animTimer += dt;
+      } else if (keys.right) {
+        player.vx += (maxSpd - player.vx) * 20 * dt;
+        player.facing = 'right';
+        player.state = 'running';
+        player.animTimer += dt;
+      } else {
+        player.vx += (0 - player.vx) * 20 * dt;
+        player.state = 'idle';
+      }
+
+      // Jump
+      if (keys.justJumped && player.grounded) {
+        player.vy = -12.6;
+        player.grounded = false;
+        keys.justJumped = false;
+        sfxJump();
+      }
+      keys.justJumped = false;
+
+      // Gravity
+      player.vy += 28 * dt;
+      if (player.vy > 14) player.vy = 14;
+
+      // Horizontal Collision
+      player.x += player.vx;
+      if (player.x < 10) player.x = 10;
+      if (player.x > LEVEL_WIDTH - player.width - 20) player.x = LEVEL_WIDTH - player.width - 20;
+
+      platforms.forEach(p => {
+        if (p.type !== 'solid') return;
+        if (player.x < p.x + p.width && player.x + player.width > p.x &&
+            player.y < p.y + p.height && player.y + player.height > p.y) {
+          if (player.vx > 0) player.x = p.x - player.width;
+          else if (player.vx < 0) player.x = p.x + p.width;
+          player.vx = 0;
+        }
+      });
+
+      // Vertical Collision
+      player.y += player.vy;
+      player.grounded = false;
+
+      platforms.forEach(p => {
+        const overlapX = player.x + player.width > p.x + 4 && player.x < p.x + p.width - 4;
+        if (p.type === 'solid') {
+          if (overlapX && player.y < p.y + p.height && player.y + player.height > p.y) {
+            if (player.vy > 0) {
+              player.y = p.y - player.height;
+              player.vy = 0;
+              player.grounded = true;
+            } else if (player.vy < 0) {
+              player.y = p.y + p.height;
+              player.vy = 0;
+            }
+          }
+        } else if (p.type === 'one-way') {
+          const feetY = player.y + player.height;
+          if (overlapX && player.vy >= 0 && (feetY - player.vy) <= p.y + 4 && feetY >= p.y) {
+            player.y = p.y - player.height;
+            player.vy = 0;
+            player.grounded = true;
+          }
+        }
+      });
+
+      // Update Hazards
+      hazards.forEach(h => {
+        if (h.vx) {
+          h.x += h.vx * (h.dir || 1);
+          if (h.x >= h.maxX) { h.dir = -1; h.x = h.maxX; }
+          else if (h.x <= h.minX) { h.dir = 1; h.x = h.minX; }
+        }
+
+        // Hazard Collision
+        if (player.invulnTimer <= 0) {
+          if (player.x < h.x + h.w && player.x + player.width > h.x &&
+              player.y < h.y + h.h && player.y + player.height > h.y) {
+            player.invulnTimer = 1.6;
+            screenShake = 0.5;
+            player.vx = player.facing === 'right' ? -4 : 4;
+            timeRemaining = Math.max(0, timeRemaining - h.penalty);
+            showToast(h.msg);
+
+            if (h.damage) {
+              player.lives -= h.damage;
+              sfxHit();
+              if (player.lives <= 0) {
+                triggerGameOver('Warden Verma caught you red-handed! Attendance: 0%.');
+              }
+            } else {
+              sfxHit();
+            }
+          }
+        }
+      });
+
+      // Check Collectibles
+      collectibles.forEach(c => {
+        if (!c.collected && player.x < c.x + c.w && player.x + player.width > c.x &&
+            player.y < c.y + c.h && player.y + player.height > c.y) {
+          c.collected = true;
+          score += c.pts;
+
+          if (c.type === 'id_card') {
+            player.hasIdCard = true;
+            sfxIdCard();
+            showToast('ID CARD ACQUIRED. YOU ARE NOW LEGALLY A STUDENT.');
+          } else if (c.type === 'coffee') {
+            player.speedBoost = 4.5;
+            sfxCollect();
+            showToast('ESPRESSO OVERDRIVE! SPEED BOOST!');
+          } else {
+            sfxCollect();
+            showToast(`+${c.pts} PTS! SUBMITTED!`);
+          }
+        }
+      });
+
+      // Check Classroom Arrival
+      if (player.x >= FINISH_LINE_X) {
+        if (player.hasIdCard && timeRemaining > 0) {
+          triggerVictory();
+        } else if (!player.hasIdCard) {
+          player.x = FINISH_LINE_X - 100;
+          player.vx = -4;
+          showToast('PROFESSOR: "WHERE IS YOUR ID CARD?! RUN BACK!"');
+          sfxHit();
+        }
+      }
+
+      // Camera
+      const targetCam = player.x - 960 * 0.35;
+      cameraX += (Math.max(0, Math.min(LEVEL_WIDTH - 960, targetCam)) - cameraX) * 8 * dt;
+
+      // Update HUD Elements
+      updateHUD();
+    }
+
+    function updateHUD() {
+      const elapsed = totalTime - timeRemaining;
+      const inGameSecs = Math.min(300, Math.floor((elapsed / totalTime) * 300));
+      const m = 55 + Math.floor(inGameSecs / 60);
+      const s = inGameSecs % 60;
+      document.getElementById('hud-clock').textContent = m >= 60 ? '08:00:00 AM' : `07:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')} AM`;
+      document.getElementById('hud-timer').textContent = `${timeRemaining.toFixed(1)}s left`;
+      document.getElementById('hud-score').textContent = score;
+
+      const hearts = '❤️'.repeat(Math.max(0, player.lives)) + '🖤'.repeat(Math.max(0, 3 - player.lives));
+      document.getElementById('hud-lives').textContent = hearts;
+
+      const idEl = document.getElementById('hud-id');
+      idEl.textContent = player.hasIdCard ? 'ID: SECURED ✓' : 'ID: MISSING ✗';
+      idEl.style.color = player.hasIdCard ? '#4ade80' : '#f87171';
+
+      const progress = Math.min(100, Math.floor((player.x / FINISH_LINE_X) * 100));
+      document.getElementById('progress-fill').style.width = `${progress}%`;
+
+      let zone = 'HOSTEL ROOM';
+      let obj = player.hasIdCard ? 'Escape Room 101 into corridor!' : 'Collect ID Card on high shelf!';
+      if (player.x >= 1100 && player.x < 2300) { zone = 'HOSTEL CORRIDOR'; obj = 'Evade Warden Verma & dodge puddles!'; }
+      else if (player.x >= 2300 && player.x < 3950) { zone = 'CAMPUS COURTYARD'; obj = 'Sprint through courtyard & dodge football!'; }
+      else if (player.x >= 3950) { zone = 'ACADEMIC BLOCK'; obj = 'Climb steps to Lecture Hall 101 before 8 AM!'; }
+
+      document.getElementById('hud-zone').textContent = zone;
+      document.getElementById('hud-objective').textContent = obj;
+    }
+
+    function triggerVictory() {
+      gameState = 'VICTORY';
+      sfxVictory();
+      const timeBonus = Math.floor(timeRemaining * 25);
+      score += timeBonus + 500;
+      document.getElementById('vic-score').textContent = score;
+      document.getElementById('vic-time').textContent = timeRemaining.toFixed(1);
+      document.getElementById('vic-rank').textContent = score >= 2200 ? 'S' : (score >= 1600 ? 'A' : 'B');
+      document.getElementById('screen-victory').style.display = 'flex';
+    }
+
+    function triggerGameOver(reason) {
+      gameState = 'GAMEOVER';
+      sfxGameOver();
+      const dist = Math.min(100, Math.floor((player.x / FINISH_LINE_X) * 100));
+      document.getElementById('gov-dist').textContent = dist;
+      document.getElementById('gov-score').textContent = score;
+      document.getElementById('gameover-reason').textContent = reason;
+      document.getElementById('screen-gameover').style.display = 'flex';
+    }
+
+    // ==========================================
+    // PROCEDURAL PIXEL-ART RENDERER
+    // ==========================================
+    function render() {
+      ctx.save();
+      if (screenShake > 0) {
+        ctx.translate((Math.random() - 0.5) * screenShake * 8, (Math.random() - 0.5) * screenShake * 8);
+      }
+
+      // Sky
+      const sky = ctx.createLinearGradient(0, 0, 0, 540);
+      sky.addColorStop(0, '#1e1b4b'); sky.addColorStop(0.5, '#b45309'); sky.addColorStop(1, '#fed7aa');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, 960, 540);
+
+      // Distant campus silhouettes
+      ctx.fillStyle = '#2e1065';
+      const offset = -(cameraX * 0.15) % 400;
+      for (let x = offset - 100; x < 960 + 200; x += 160) {
+        ctx.fillRect(x, 260, 70, 190);
+        ctx.fillRect(x + 55, 230, 50, 220);
+      }
+
+      ctx.save();
+      ctx.translate(-cameraX, 0);
+
+      // Section A: Bedroom Wall
+      if (cameraX < 1400) {
+        ctx.fillStyle = '#3d2817';
+        ctx.fillRect(0, 80, 1100, GROUND_Y - 80);
+        // Bed
+        ctx.fillStyle = '#78350f'; ctx.fillRect(30, 340, 16, 110);
+        ctx.fillStyle = '#1d4ed8'; ctx.fillRect(46, 390, 134, 40);
+        ctx.fillStyle = '#e2e8f0'; ctx.fillRect(48, 375, 35, 15);
+        // Desk & PC
+        ctx.fillStyle = '#5c2b09'; ctx.fillRect(420, 370, 140, 80);
+        ctx.fillStyle = '#0f172a'; ctx.fillRect(460, 305, 56, 48);
+        ctx.fillStyle = '#022c22'; ctx.fillRect(464, 309, 48, 40);
+        ctx.fillStyle = '#4ade80'; ctx.font = '6px monospace'; ctx.fillText('8 AM QUIZ', 468, 325);
+      }
+
+      // Platforms
+      platforms.forEach(p => {
+        ctx.fillStyle = p.color || '#334155';
+        ctx.fillRect(p.x, p.y, p.width, p.height);
+      });
+
+      // Collectibles
+      collectibles.forEach(c => {
+        if (c.collected) return;
+        if (c.type === 'id_card') {
+          ctx.fillStyle = '#ffffff'; ctx.fillRect(c.x, c.y, c.w, c.h);
+          ctx.strokeStyle = '#0284c7'; ctx.lineWidth = 2; ctx.strokeRect(c.x, c.y, c.w, c.h);
+          ctx.fillStyle = '#38bdf8'; ctx.fillRect(c.x + 4, c.y + 4, 12, 14);
+          ctx.fillStyle = '#f59e0b'; ctx.font = '7px "Press Start 2P"'; ctx.fillText('ID', c.x + 4, c.y - 8);
+        } else if (c.type === 'coffee') {
+          ctx.fillStyle = '#f8fafc'; ctx.fillRect(c.x + 4, c.y, c.w - 8, c.h);
+          ctx.fillStyle = '#92400e'; ctx.fillRect(c.x + 4, c.y + 6, c.w - 8, 10);
+        } else {
+          ctx.fillStyle = '#fef08a'; ctx.fillRect(c.x, c.y, c.w, c.h);
+        }
+      });
+
+      // Hazards
+      hazards.forEach(h => {
+        if (h.type === 'shoes') {
+          ctx.fillStyle = '#ef4444'; ctx.fillRect(h.x, h.y + 4, 18, 10);
+          ctx.fillStyle = '#3b82f6'; ctx.fillRect(h.x + 20, h.y + 6, 16, 8);
+        } else if (h.type === 'books') {
+          ctx.fillStyle = '#1e3a8a'; ctx.fillRect(h.x, h.y, h.w, h.h);
+        } else if (h.type === 'puddle') {
+          ctx.fillStyle = '#38bdf8'; ctx.fillRect(h.x, h.y, h.w, h.h);
+        } else if (h.type === 'football') {
+          ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(h.x + 14, h.y + 14, 14, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(h.x + 14, h.y + 14, 6, 0, Math.PI * 2); ctx.fill();
+        } else if (h.type === 'warden') {
+          ctx.fillStyle = '#b45309'; ctx.fillRect(h.x + 6, h.y + 20, 22, 30);
+          ctx.fillStyle = '#d97706'; ctx.fillRect(h.x + 8, h.y + 4, 18, 16);
+          ctx.fillStyle = '#475569'; ctx.fillRect(h.x + 8, h.y + 2, 18, 4);
+          ctx.fillStyle = '#0f172a'; ctx.fillRect(h.x + 8, h.y + 50, 8, 25);
+          ctx.fillRect(h.x + 18, h.y + 50, 8, 25);
+        }
+      });
+
+      // Professor & Classroom Door
+      ctx.fillStyle = '#334155'; ctx.fillRect(4980, 215, 80, 160);
+      ctx.fillStyle = '#0284c7'; ctx.fillRect(4996, 235, 48, 50);
+      ctx.fillStyle = '#1e293b'; ctx.fillRect(4928, 315, 22, 34);
+      ctx.fillStyle = '#fed7aa'; ctx.fillRect(4931, 298, 16, 17);
+
+      // Player
+      if (player.invulnTimer <= 0 || Math.floor(player.invulnTimer * 20) % 2 === 0) {
+        ctx.save();
+        ctx.translate(player.x + player.width / 2, player.y + player.height);
+        if (player.facing === 'left') ctx.scale(-1, 1);
+        ctx.fillStyle = '#475569'; ctx.fillRect(-8, -16, 7, 14); ctx.fillRect(1, -16, 7, 14);
+        ctx.fillStyle = '#dc2626'; ctx.fillRect(-10, -3, 10, 3); ctx.fillRect(-1, -3, 10, 3);
+        ctx.fillStyle = '#0284c7'; ctx.fillRect(-9, -36, 18, 21);
+        ctx.fillStyle = '#b45309'; ctx.fillRect(-16, -34, 8, 18);
+        ctx.fillStyle = '#fed7aa'; ctx.fillRect(-6, -48, 14, 13);
+        ctx.fillStyle = '#1c1917'; ctx.fillRect(-8, -52, 18, 6);
+        ctx.restore();
+      }
+
+      ctx.restore();
+      ctx.restore();
+    }
+  </script>
+</body>
+</html>
